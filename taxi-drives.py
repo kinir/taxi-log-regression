@@ -5,13 +5,6 @@ Created on Fri Feb  9 23:09:17 2018
 @author: Nir
 """
 
-# -*- coding: utf-8 -*-
-"""
-Spyder Editor
-
-This is a temporary script file.
-"""
-
 from geopy.distance import vincenty
 from datetime import datetime
 import matplotlib.pyplot as plt
