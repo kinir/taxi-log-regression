@@ -22,7 +22,6 @@ feature_names = ["source_location_lon",
                 "dest_location_lon",
                 "dest_location_lat",
                 "distance",
-                "real_distance",
                 "month",
                 "day_of_month",
                 "day_of_week",
@@ -61,14 +60,15 @@ def get_data():
     lst_data = list()
     
     # Read each text file (specific taxi readings) and extract the features
-    for filename in filenames[0:5]:
+    for filename in filenames[0:1]:
         with open(filename, 'r') as f:
             
             # Read the taxi readings
             reader = list(csv.reader(f))
             
             # Divide the data into segments of close taxi readings (no more then 15 mins between two readings)
-            segments = divide_to_segments(reader, 15)
+            distances = list()
+            segments = divide_to_segments(reader, 15, distances)
             
             # Combine the data into source-destination combinations
             source_dest_combs = get_source_dest_comb(segments)
@@ -93,32 +93,11 @@ def get_source_dest_comb(segments):
         final_combinations.append(source_dest_combs)
         
     return list(itertools.chain.from_iterable(final_combinations))
-    
-#def get_source_dest_comb(data, maximum_mins):
-#    source_dest_comb = list()
-#    
-#    # Combine the data into source-destination combinations that in each combination,
-#    # the time between two consecutive rows is less the maximum_mins and not zero (duplicate rows)
-#    for index, row in enumerate(data[:-1]):
-#        
-#        # Hold the current row and the next one to calculate the time between them
-#        curr_row = row
-#        next_row = data[index + 1]
-#        
-#        # Extract only the duration (in seconds) feature from the two rows
-#        duration = extract_features(curr_row, next_row, names=["duration"])[0]
-#        
-#        # Check if the duration (in minuts) meets the requirements of the maximum_mins and not zero (duplicate rows)
-#        if duration != 0 and duration / 60.0 < maximum_mins:
-#            
-#            # Add the current row as a source and the next row as a destination
-#            source_dest_comb.append((curr_row, next_row))
-#    
-#    return source_dest_comb
 
-def divide_to_segments(data, maximum_mins):
+def divide_to_segments(data, maximum_mins, distances):
     segments = list()
     curr_segment = list()
+    curr_distances = list()
     
     # Divide the data into segments that each segment contains close readings by time
     # the time between two consecutive rows is less the maximum_mins and not zero (duplicate rows)
@@ -128,8 +107,10 @@ def divide_to_segments(data, maximum_mins):
         curr_row = row
         next_row = data[index + 1]
         
-        # Extract only the duration (in seconds) feature from the two rows
-        duration = extract_features(curr_row, next_row, names=["duration"])[0]
+        # Extract the distance and the duration (in seconds) feature from the two rows
+        features = extract_features(curr_row, next_row, names=["distance", "duration"])
+        duration = features[1]
+        distance = features[0]
         
         # Skip duplicate rows
         if duration == 0:
@@ -145,9 +126,15 @@ def divide_to_segments(data, maximum_mins):
             # Save the current segment if he is big enough
             if len(curr_segment) > 1:
                 segments.append(curr_segment)
+                distances.append(curr_distances)
                 
             # Start a new segment  
             curr_segment = list()
+            curr_distances = list()
+        else:
+            
+            # Save distances for real distance calculations
+            curr_distances.append(distance)
     
     return segments
         
