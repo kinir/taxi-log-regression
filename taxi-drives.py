@@ -11,16 +11,18 @@ from geopy.distance import vincenty
 from datetime import datetime
 import matplotlib.pyplot as plt
 import pandas as pd
+import itertools
 import glob
 import csv
 
 time_format = "%Y-%m-%d %H:%M:%S"
-dir_path = "D:/Nir/Downloads/Chrome/T-drive Taxi Trajectories/release/taxi_log_2008_by_id/test/"
+dir_path = "C:/Users/Nir/Downloads/release/taxi_log_2008_by_id/"
 feature_names = ["source_location_lon",
                 "source_location_lat",
                 "dest_location_lon",
                 "dest_location_lat",
                 "distance",
+                "real_distance",
                 "month",
                 "day_of_month",
                 "day_of_week",
@@ -59,15 +61,17 @@ def get_data():
     lst_data = list()
     
     # Read each text file (specific taxi readings) and extract the features
-    for filename in filenames[1:2]:
+    for filename in filenames[0:5]:
         with open(filename, 'r') as f:
             
             # Read the taxi readings
             reader = list(csv.reader(f))
             
-            # Combine the data into source-destination combinations close to each other (not more than 20 minutes between them)
-            source_dest_combs = get_source_dest_comb(reader, 15)
+            # Divide the data into segments of close taxi readings (no more then 15 mins between two readings)
+            segments = divide_to_segments(reader, 15)
             
+            # Combine the data into source-destination combinations
+            source_dest_combs = get_source_dest_comb(segments)
             
             # Go through all the source-destination combinations and extract all the features from each one
             for comb in source_dest_combs:
@@ -81,10 +85,42 @@ def get_data():
     
     return features
     
-def get_source_dest_comb(data, maximum_mins):
-    source_dest_comb = list()
+def get_source_dest_comb(segments):
+    final_combinations = list()
     
-    # Combine the data into source-destination combinations that in each combination,
+    for segment in segments:
+        source_dest_combs = list(itertools.combinations(segment, 2))
+        final_combinations.append(source_dest_combs)
+        
+    return list(itertools.chain.from_iterable(final_combinations))
+    
+#def get_source_dest_comb(data, maximum_mins):
+#    source_dest_comb = list()
+#    
+#    # Combine the data into source-destination combinations that in each combination,
+#    # the time between two consecutive rows is less the maximum_mins and not zero (duplicate rows)
+#    for index, row in enumerate(data[:-1]):
+#        
+#        # Hold the current row and the next one to calculate the time between them
+#        curr_row = row
+#        next_row = data[index + 1]
+#        
+#        # Extract only the duration (in seconds) feature from the two rows
+#        duration = extract_features(curr_row, next_row, names=["duration"])[0]
+#        
+#        # Check if the duration (in minuts) meets the requirements of the maximum_mins and not zero (duplicate rows)
+#        if duration != 0 and duration / 60.0 < maximum_mins:
+#            
+#            # Add the current row as a source and the next row as a destination
+#            source_dest_comb.append((curr_row, next_row))
+#    
+#    return source_dest_comb
+
+def divide_to_segments(data, maximum_mins):
+    segments = list()
+    curr_segment = list()
+    
+    # Divide the data into segments that each segment contains close readings by time
     # the time between two consecutive rows is less the maximum_mins and not zero (duplicate rows)
     for index, row in enumerate(data[:-1]):
         
@@ -95,13 +131,25 @@ def get_source_dest_comb(data, maximum_mins):
         # Extract only the duration (in seconds) feature from the two rows
         duration = extract_features(curr_row, next_row, names=["duration"])[0]
         
-        # Check if the duration (in minuts) meets the requirements of the maximum_mins and not zero (duplicate rows)
-        if duration != 0 and duration / 60.0 < maximum_mins:
+        # Skip duplicate rows
+        if duration == 0:
+            continue
+        
+        # The row is added to the current segment.
+        # The segment will be empty (new segment) if the previous row was far back in time
+        curr_segment.append(curr_row)
+        
+        # Check if the duration (in minuts) does not meets the requirements of the maximum_mins
+        if duration / 60.0 >= maximum_mins:
             
-            # Add the current row as a source and the next row as a destination
-            source_dest_comb.append((curr_row, next_row))
+            # Save the current segment if he is big enough
+            if len(curr_segment) > 1:
+                segments.append(curr_segment)
+                
+            # Start a new segment  
+            curr_segment = list()
     
-    return source_dest_comb
+    return segments
         
 def extract_features(source, dest, names=None):
     row_features = list()
