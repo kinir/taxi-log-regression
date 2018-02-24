@@ -2,7 +2,7 @@
 """
 Created on Fri Feb  9 23:09:17 2018
 
-@author: Nir
+@author: Nir & Rotem
 """
 from sklearn.metrics import mean_squared_error, r2_score, explained_variance_score
 from sklearn.preprocessing import MinMaxScaler
@@ -67,8 +67,7 @@ def get_data():
             reader = list(csv.reader(f))
             
             # Divide the data into segments of close taxi readings (no more then 15 mins between two readings)
-            distances = list()
-            segments = divide_to_segments(reader, 15, distances)
+            segments = divide_to_segments(reader, 15)
             
             # Combine the data into source-destination combinations
             source_dest_combs = get_source_dest_comb(segments)
@@ -94,10 +93,9 @@ def get_source_dest_comb(segments):
         
     return list(itertools.chain.from_iterable(final_combinations))
 
-def divide_to_segments(data, maximum_mins, distances):
+def divide_to_segments(data, maximum_mins):
     segments = list()
     curr_segment = list()
-    curr_distances = list()
     
     # Divide the data into segments that each segment contains close readings by time
     # the time between two consecutive rows is less the maximum_mins and not zero (duplicate rows)
@@ -107,10 +105,8 @@ def divide_to_segments(data, maximum_mins, distances):
         curr_row = row
         next_row = data[index + 1]
         
-        # Extract the distance and the duration (in seconds) feature from the two rows
-        features = extract_features(curr_row, next_row, names=["distance", "duration"])
-        duration = features[1]
-        distance = features[0]
+        # Extract the duration (in seconds) feature from the two rows
+        duration = extract_features(curr_row, next_row, names=["duration"])[0]
         
         # Skip duplicate rows
         if duration == 0:
@@ -126,15 +122,9 @@ def divide_to_segments(data, maximum_mins, distances):
             # Save the current segment if he is big enough
             if len(curr_segment) > 1:
                 segments.append(curr_segment)
-                distances.append(curr_distances)
                 
             # Start a new segment  
             curr_segment = list()
-            curr_distances = list()
-        else:
-            
-            # Save distances for real distance calculations
-            curr_distances.append(distance)
     
     return segments
         
